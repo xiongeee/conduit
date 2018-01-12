@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use bytes::{Buf, BufMut};
 use prost::{DecodeError, Message};
-use tower_grpc::client::codec::{Codec, DecodeBuf, EncodeBuf};
+use tower_grpc::codec::{Codec, DecodeBuf, EncodeBuf};
 
 /// A protobuf codec.
 pub struct Protobuf<T, U>(PhantomData<(T, U)>);
