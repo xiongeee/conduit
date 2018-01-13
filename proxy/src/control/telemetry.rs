@@ -5,23 +5,27 @@ use tower::Service;
 use tower_grpc;
 use tokio_core::reactor::Handle;
 
-use super::codec::Protobuf;
+// use super::codec::Protobuf;
 use super::pb::proxy::telemetry::{ReportRequest, ReportResponse};
 use super::pb::proxy::telemetry::client::Telemetry as TelemetrySvc;
-use super::pb::proxy::telemetry::client::telemetry_methods::Report as ReportRpc;
+// use super::pb::proxy::telemetry::client::telemetry_methods::Report as ReportRpc;
 use ::timeout::{Timeout, TimeoutFuture};
 
-pub type ClientBody = tower_grpc::client::codec::EncodingBody<
-    Protobuf<ReportRequest, ReportResponse>,
-    tower_grpc::client::codec::Unary<ReportRequest>,
->;
+pub type ClientBody = ReportRequest;
 
-type TelemetryStream<F> = tower_grpc::client::BodyFuture<
-    tower_grpc::client::Unary<
-        tower_grpc::client::ResponseFuture<Protobuf<ReportRequest, ReportResponse>, TimeoutFuture<F>>,
-        Protobuf<ReportRequest, ReportResponse>,
-    >,
->;
+// tower_grpc::client::codec::EncodingBody<
+//     Protobuf<ReportRequest, ReportResponse>,
+//     tower_grpc::client::codec::Unary<ReportRequest>,
+// >;
+
+type TelemetryStream<F> = tower_grpc::client::unary::ResponseFuture<ReportResponse, TimeoutFuture<F>, ::http::Response<::tower_h2::RecvBody>>;
+
+// tower_grpc::client::BodyFuture<
+//     tower_grpc::client::Unary<
+//         tower_grpc::client::ResponseFuture<Protobuf<ReportRequest, ReportResponse>, TimeoutFuture<F>>,
+//         Protobuf<ReportRequest, ReportResponse>,
+//     >,
+// >;
 
 #[derive(Debug)]
 pub struct Telemetry<T, F> {
@@ -57,11 +61,7 @@ where
         >,
     {
         let client = Timeout::new(client, self.report_timeout, &self.handle);
-        let grpc = tower_grpc::Client::new(Protobuf::new(), client);
-        let mut rpc = ReportRpc::new(grpc);
-
-        //let _ctxt = ::logging::context("Telemetry.Report".into());
-
+        let rpc = TelemetrySvc::new(&mut client);
         loop {
             trace!("poll_rpc");
             if let Some((t0, mut fut)) = self.in_flight.take() {
@@ -119,7 +119,7 @@ where
                             report.server_transports.len(),
                             report.client_transports.len(),
                         );
-                        let rep = TelemetrySvc::new(&mut rpc).report(report);
+                        let rep = rpc.report(report);
                         self.in_flight = Some((Instant::now(), rep));
                     }
                 }
