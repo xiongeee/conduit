@@ -10,17 +10,12 @@ use tower_grpc;
 
 use fully_qualified_authority::FullyQualifiedAuthority;
 
-use super::codec::Protobuf;
 use super::pb::common::{Destination, TcpAddress};
-use super::pb::proxy::destination::Update as PbUpdate;
+// use super::pb::proxy::destination::Update as PbUpdate;
 use super::pb::proxy::destination::client::Destination as DestinationSvc;
-use super::pb::proxy::destination::client::destination_methods::Get as GetRpc;
 use super::pb::proxy::destination::update::Update as PbUpdate2;
 
-pub type ClientBody = ::tower_grpc::client::codec::EncodingBody<
-    Protobuf<Destination, PbUpdate>,
-    ::tower_grpc::client::codec::Unary<Destination>,
->;
+pub type ClientBody = Destination;
 
 /// A handle to start watching a destination for address changes.
 #[derive(Clone, Debug)]
@@ -42,11 +37,10 @@ pub struct Background {
 }
 
 type DiscoveryWatch<F> = DestinationSet<
-    tower_grpc::client::Streaming<
-        tower_grpc::client::ResponseFuture<Protobuf<Destination, PbUpdate>, F>,
-        tower_grpc::client::codec::DecodingBody<Protobuf<Destination, PbUpdate>>,
-    >,
->;
+    tower_grpc::Streaming<
+        tower_grpc::client::server_streaming::ResponseFuture<Destination, F>,
+        Destination>,
+    >;
 
 /// A future returned from `Background::work()`, doing the work of talking to
 /// the controller destination API.
@@ -239,8 +233,7 @@ where
                 continue;
             }
 
-            let grpc = tower_grpc::Client::new(Protobuf::new(), &mut client);
-            let mut rpc = GetRpc::new(grpc);
+            let mut rpc = DestinationSvc::new(&mut client);
             // check for any new watches
             match self.rx.poll() {
                 Ok(Async::Ready(Some((auth, tx)))) => {
@@ -254,7 +247,7 @@ where
                                 scheme: "k8s".into(),
                                 path: vac.key().without_trailing_dot().into(),
                             };
-                            let stream = DestinationSvc::new(&mut rpc).get(req);
+                            let stream = rpc.get(req);
                             vac.insert(DestinationSet {
                                 addrs: HashSet::new(),
                                 needs_reconnect: false,
@@ -285,8 +278,7 @@ where
         >,
     {
         debug_assert!(self.rpc_ready);
-        let grpc = tower_grpc::Client::new(Protobuf::new(), client);
-        let mut rpc = GetRpc::new(grpc);
+        let mut rpc = DestinationSvc::new(&mut client);
 
         while let Some(auth) = self.reconnects.pop_front() {
             if let Some(set) = self.destinations.get_mut(&auth) {
@@ -295,7 +287,7 @@ where
                     scheme: "k8s".into(),
                     path: auth.without_trailing_dot().into(),
                 };
-                set.rx = DestinationSvc::new(&mut rpc).get(req);
+                set.rx = rpc.get(req);
                 set.needs_reconnect = false;
                 return true;
             } else {
