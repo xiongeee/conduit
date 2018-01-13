@@ -6,7 +6,7 @@ use futures::{future, Async, Future, Poll, Stream};
 use h2;
 use http;
 use tokio_core::reactor::{
-    Handle, 
+    Handle,
     // TODO: would rather just have Backoff in a separate file so this
     //       renaming import is not necessary.
     Timeout as ReactorTimeout
@@ -21,7 +21,6 @@ use fully_qualified_authority::FullyQualifiedAuthority;
 use transport::LookupAddressAndConnect;
 use timeout::Timeout;
 
-mod codec;
 pub mod discovery;
 mod observe;
 pub mod pb;
