@@ -19,9 +19,9 @@ url = "1.5"
 tokio-core = "0.1"
 tokio-io = "0.1"
 
-prost = "0.2"
-prost-derive = "0.2"
-prost-types = "0.2"
+prost           = { git = "https://github.com/danburkert/prost" }
+prost-types     = { git = "https://github.com/danburkert/prost" }
+prost-derive    = { git = "https://github.com/danburkert/prost" }
 
 abstract-ns = "0.4"
 ns-dns-tokio = "0.4"
