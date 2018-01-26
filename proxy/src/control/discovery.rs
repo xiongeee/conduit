@@ -57,7 +57,7 @@ struct DestinationSet<T: HttpService<ResponseBody = RecvBody>> {
     addrs: HashSet<SocketAddr>,
     needs_reconnect: bool,
     rx: UpdateRx<T>,
-    tx: mpsc::UnboundedSender<Update>,
+    txs: Vec<mpsc::UnboundedSender<Update>>,
 }
 
 /// Receiver for destination set updates.
