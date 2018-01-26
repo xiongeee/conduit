@@ -7,12 +7,13 @@ use std::time::Duration;
 
 use http;
 use tokio_core::reactor::Handle;
+use tower;
 use tower_h2;
 use tower_reconnect::{self, Reconnect};
 
 use control;
 use ctx;
-use telemetry;
+use telemetry::{self, sensor};
 use transparency;
 use transport;
 use ::timeout::Timeout;
@@ -48,15 +49,19 @@ pub enum Protocol {
     Http2
 }
 
-type Service<B> = Reconnect<
-    telemetry::sensor::NewHttp<
-        transparency::Client<
-            telemetry::sensor::Connect<transport::TimeoutConnect<transport::Connect>>,
-            B,
-        >,
+type Service<B> = Reconnect<NewHttp<B>>;
+
+type NewHttp<B> = sensor::NewHttp<
+    transparency::Client<
+        sensor::Connect<transport::TimeoutConnect<transport::Connect>>,
         B,
-        transparency::HttpBody,
     >,
+    B,
+    transparency::HttpBody,
+>;
+
+type HttpResponse = http::Response<
+    sensor::http::ResponseBody<tower_h2::RecvBody>
 >;
 
 impl<B> Bind<(), B> {
@@ -137,6 +142,7 @@ impl<C, B> Bind<C, B> {
 impl<B> Bind<Arc<ctx::Proxy>, B>
 where
     B: tower_h2::Body + 'static,
+    NewHttp<B>: tower::NewService,
 {
     pub fn bind_service(&self, addr: &SocketAddr, protocol: Protocol) -> Service<B> {
         trace!("bind_service addr={}, protocol={:?}", addr, protocol);
@@ -184,16 +190,25 @@ impl<C, B> Bind<C, B> {
     }
 }
 
-impl<B> control::discovery::Bind for BindProtocol<Arc<ctx::Proxy>, B>
+impl<B, E> control::discovery::Bind for BindProtocol<Arc<ctx::Proxy>, B>
 where
     B: tower_h2::Body + 'static,
+    NewHttp<B>: tower::NewService<
+        Request = http::Request<B>,
+        Response = HttpResponse,
+    >,
+    Service<B>: tower::Service<
+        Request = http::Request<B>,
+        Response = HttpResponse,
+        Error = E
+    >,
 {
     type Request = http::Request<B>;
-    type Response = http::Response<telemetry::sensor::http::ResponseBody<transparency::HttpBody>>;
-    type Error = tower_reconnect::Error<
-        tower_h2::client::Error,
-        tower_h2::client::ConnectError<transport::TimeoutError<io::Error>>,
-    >;
+    type Response = HttpResponse;
+    //     tower_h2::client::Error,
+    //     tower_h2::client::ConnectError<transport::TimeoutError<io::Error>>,
+    // >;
+    type Error = E;
     type Service = Service<B>;
     type BindError = ();
 
