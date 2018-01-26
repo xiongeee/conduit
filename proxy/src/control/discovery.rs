@@ -253,7 +253,13 @@ where
                     trace!("Destination.Get {:?}", auth);
                     match self.destinations.entry(auth) {
                         Entry::Occupied(mut occ) => {
-                            occ.get_mut().tx = tx;
+                            let set = occ.get_mut();
+                            // we may already know of some addresses here, so push
+                            // them onto the new watch first
+                            for &addr in &set.addrs {
+                                let _ = tx.unbounded_send(Update::Insert(addr));
+                            }
+                            set.txs.push(tx);
                         }
                         Entry::Vacant(vac) => {
                             let req = Destination {
@@ -269,7 +275,7 @@ where
                                 addrs: HashSet::new(),
                                 needs_reconnect: false,
                                 rx: stream,
-                                tx,
+                                txs: vec![tx],
                             });
                         }
                     }
@@ -320,7 +326,10 @@ where
                             if let Some(addr) = addr.addr.and_then(pb_to_sock_addr) {
                                 if set.addrs.insert(addr) {
                                     trace!("update {:?} for {:?}", addr, auth);
-                                    let _ = set.tx.unbounded_send(Update::Insert(addr));
+                                    // retain is used to drop any senders that are dead
+                                    set.txs.retain(|tx| {
+                                        tx.unbounded_send(Update::Insert(addr)).is_ok()
+                                    });
                                 }
                             }
                         },
@@ -328,7 +337,10 @@ where
                             if let Some(addr) = pb_to_sock_addr(addr) {
                                 if set.addrs.remove(&addr) {
                                     trace!("remove {:?} for {:?}", addr, auth);
-                                    let _ = set.tx.unbounded_send(Update::Remove(addr));
+                                    // retain is used to drop any senders that are dead
+                                    set.txs.retain(|tx| {
+                                        tx.unbounded_send(Update::Remove(addr)).is_ok()
+                                    });
                                 }
                             }
                         },

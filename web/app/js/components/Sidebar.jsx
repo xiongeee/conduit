@@ -20,7 +20,8 @@ export default class Sidebar extends React.Component {
 
     this.state = {
       autocompleteValue: '',
-      deployments: []
+      deployments: [],
+      filteredDeployments: []
     };
   }
 
@@ -40,9 +41,12 @@ export default class Sidebar extends React.Component {
   }
 
   onAutocompleteSelect(deployment) {
-    let pathToDeploymentPage = `/deployment?deploy=${deployment}`;
+    let pathToDeploymentPage = `${this.props.pathPrefix}/deployment?deploy=${deployment}`;
     this.props.history.push(pathToDeploymentPage);
-    this.setState({ autocompleteValue: '' });
+    this.setState({
+      autocompleteValue: '',
+      filteredDeployments: this.state.deployments
+    });
   }
 
   filterDeployments(search) {
@@ -65,6 +69,7 @@ export default class Sidebar extends React.Component {
           </div>
 
           <AutoComplete
+            className="conduit-autocomplete"
             value={this.state.autocompleteValue}
             dataSource={this.state.filteredDeployments}
             style={{ width: searchBarWidth }}

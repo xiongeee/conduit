@@ -77,7 +77,7 @@ where
                     return;
                 }
                 Ok(Async::Ready(None)) => {
-                    error!("report stream complete");
+                    debug!("report stream complete");
                     return;
                 }
                 Err(err) => {

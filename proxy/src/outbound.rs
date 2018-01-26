@@ -6,12 +6,15 @@ use tower_buffer::Buffer;
 use tower_h2;
 use tower_router::Recognize;
 
-use bind::Bind;
+use bind::{Bind, BindProtocol, Protocol};
 use control;
 use ctx;
 use fully_qualified_authority::FullyQualifiedAuthority;
+use telemetry;
+use transparency;
+use transport;
 
-type Discovery<B> = control::discovery::Watch<Bind<Arc<ctx::Proxy>, B>>;
+type Discovery<B> = control::discovery::Watch<BindProtocol<Arc<ctx::Proxy>, B>>;
 
 // todo: better lb
 type LoadBalance<B> = Balance<Discovery<B>, choose::RoundRobin>;
@@ -45,17 +48,23 @@ where
     type Request = <Buffer<LoadBalance<B>> as tower::Service>::Request;
     type Response = <Buffer<LoadBalance<B>> as tower::Service>::Response;
     type Error = <Buffer<LoadBalance<B>> as tower::Service>::Error;
-    type Key = FullyQualifiedAuthority;
+    type Key = (FullyQualifiedAuthority, Protocol);
     type RouteError = ();
     type Service = Buffer<LoadBalance<B>>;
 
     fn recognize(&self, req: &Self::Request) -> Option<Self::Key> {
-        req.uri().authority_part().map(|authority|
-            FullyQualifiedAuthority::new(
+        req.uri().authority_part().map(|authority| {
+            let auth = FullyQualifiedAuthority::new(
                 authority,
                 self.default_namespace.as_ref().map(|s| s.as_ref()),
-                self.default_zone.as_ref().map(|s| s.as_ref()))
-        )
+                self.default_zone.as_ref().map(|s| s.as_ref()));
+
+            let proto = match req.version() {
+                http::Version::HTTP_2 => Protocol::Http2,
+                _ => Protocol::Http1,
+            };
+            (auth, proto)
+        })
     }
 
     /// Builds a dynamic, load balancing service.
@@ -69,11 +78,15 @@ where
     /// changed.
     fn bind_service(
         &mut self,
-        authority: &FullyQualifiedAuthority,
+        key: &Self::Key,
     ) -> Result<Self::Service, Self::RouteError> {
-        debug!("building outbound client to {:?}", authority);
+        let &(ref authority, protocol) = key;
+        debug!("building outbound {:?} client to {:?}", protocol, authority);
 
-        let resolve = self.discovery.resolve(authority, self.bind.clone());
+        let resolve = self.discovery.resolve(
+            authority,
+            self.bind.clone().with_protocol(protocol),
+        );
 
         // TODO: move to p2c lb.
         let balance = tower_balance::round_robin(resolve);
