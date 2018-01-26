@@ -4,6 +4,7 @@ use http;
 use hyper;
 use tokio_connect::Connect;
 use tokio_core::reactor::Handle;
+use tokio_io;
 use tower::{Service, NewService};
 use tower_h2;
 
@@ -96,6 +97,7 @@ where
 impl<C, B> NewService for Client<C, B>
 where
     C: Connect + Clone + 'static,
+    C: tokio_io::AsyncRead + tokio_io::AsyncWrite,
     C::Future: 'static,
     B: tower_h2::Body + 'static,
 {
@@ -124,6 +126,7 @@ impl<C, B> Future for ClientNewServiceFuture<C, B>
 where
     C: Connect + 'static,
     B: tower_h2::Body + 'static,
+    tower_h2::client::Connection<C, Handle, B>: Service,
 {
     type Item = ClientService<C, B>;
     type Error = tower_h2::client::ConnectError<C::Error>;
