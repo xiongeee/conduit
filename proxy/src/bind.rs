@@ -9,7 +9,7 @@ use http;
 use tokio_core::reactor::Handle;
 use tower;
 use tower_h2;
-use tower_reconnect::{self, Reconnect};
+use tower_reconnect::{self, Reconnect, Error as ReconnectError};
 
 use control;
 use ctx;
@@ -49,9 +49,9 @@ pub enum Protocol {
     Http2
 }
 
-type Service<B> = Reconnect<NewHttp<B>>;
+pub type Service<B> = Reconnect<NewHttp<B>>;
 
-type NewHttp<B> = sensor::NewHttp<
+pub type NewHttp<B> = sensor::NewHttp<
     transparency::Client<
         sensor::Connect<transport::TimeoutConnect<transport::Connect>>,
         B,
@@ -60,7 +60,7 @@ type NewHttp<B> = sensor::NewHttp<
     transparency::HttpBody,
 >;
 
-type HttpResponse = http::Response<
+pub type HttpResponse = http::Response<
     sensor::http::ResponseBody<tower_h2::RecvBody>
 >;
 
@@ -190,7 +190,7 @@ impl<C, B> Bind<C, B> {
     }
 }
 
-impl<B, E> control::discovery::Bind for BindProtocol<Arc<ctx::Proxy>, B>
+impl<B> control::discovery::Bind for BindProtocol<Arc<ctx::Proxy>, B>
 where
     B: tower_h2::Body + 'static,
     NewHttp<B>: tower::NewService<
@@ -200,15 +200,11 @@ where
     Service<B>: tower::Service<
         Request = http::Request<B>,
         Response = HttpResponse,
-        Error = E
     >,
 {
     type Request = http::Request<B>;
     type Response = HttpResponse;
-    //     tower_h2::client::Error,
-    //     tower_h2::client::ConnectError<transport::TimeoutError<io::Error>>,
-    // >;
-    type Error = E;
+    type Error = <Service<B> as tower::Service>::Error;
     type Service = Service<B>;
     type BindError = ();
 
