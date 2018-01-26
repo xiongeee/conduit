@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use http;
+
 use tower;
 use tower_balance::{self, choose, Balance};
 use tower_buffer::Buffer;
@@ -10,9 +12,6 @@ use bind::{Bind, BindProtocol, Protocol};
 use control;
 use ctx;
 use fully_qualified_authority::FullyQualifiedAuthority;
-use telemetry;
-use transparency;
-use transport;
 
 type Discovery<B> = control::discovery::Watch<BindProtocol<Arc<ctx::Proxy>, B>>;
 
