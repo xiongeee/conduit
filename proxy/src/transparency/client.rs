@@ -23,7 +23,7 @@ where
     B: tower_h2::Body,
 {
     Http1(hyper::Client<HyperConnect<C>, BodyStream<B>>),
-    Http2(tower_h2::client::Client<C, Handle, B>),
+    Http2(tower_h2::client::Connect<C, Handle, B>),
 }
 
 /// A `Future` returned from `Client::new_service()`.
@@ -57,7 +57,7 @@ where
     B: tower_h2::Body,
 {
     Http1(hyper::Client<HyperConnect<C>, BodyStream<B>>),
-    Http2(tower_h2::client::Service<C, Handle, B>),
+    Http2(tower_h2::client::Connection<C, Handle, B>),
 }
 
 impl<C, B> Client<C, B>
@@ -83,7 +83,7 @@ where
                 // h2 currently doesn't handle PUSH_PROMISE that well, so we just
                 // disable it for now.
                 h2_builder.enable_push(false);
-                let h2 = tower_h2::client::Client::new(connect, h2_builder, executor);
+                let h2 = tower_h2::client::Connect::new(connect, h2_builder, executor);
 
                 Client {
                     inner: ClientInner::Http2(h2),
