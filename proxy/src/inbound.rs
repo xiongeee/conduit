@@ -56,7 +56,7 @@ where
     // type Error = tower_buffer::Error<E>;
     type Key = (SocketAddr, bind::Protocol);
     type RouteError = ();
-    type Service = Buffer<Reconnect<telemetry::sensor::NewHttp<Client<B>, B, transparency::HttpBody>>>;
+    type Service = Buffer<bind::Service<B>>;
 
     fn recognize(&self, req: &Self::Request) -> Option<Self::Key> {
         let key = req.extensions()

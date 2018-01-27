@@ -8,15 +8,14 @@ use tower_buffer::Buffer;
 use tower_h2;
 use tower_router::Recognize;
 
-use bind::{Bind, BindProtocol, Protocol};
-use control;
+use bind::{self, Bind, Protocol};
+use control::{self, discovery};
 use ctx;
 use fully_qualified_authority::FullyQualifiedAuthority;
 
-type Discovery<B> = control::discovery::Watch<BindProtocol<Arc<ctx::Proxy>, B>>;
+type BindProtocol<B> = bind::BindProtocol<Arc<ctx::Proxy>, B>;
 
-// todo: better lb
-type LoadBalance<B> = Balance<Discovery<B>, choose::RoundRobin>;
+type Discovery<B> = discovery::Watch<BindProtocol<B>>;
 
 pub struct Outbound<B> {
     bind: Bind<Arc<ctx::Proxy>, B>,
@@ -42,14 +41,18 @@ impl<B> Outbound<B> {
 
 impl<B> Recognize for Outbound<B>
 where
-    B: tower_h2::Body + 'static
+    B: tower_h2::Body + 'static,
+    BindProtocol<B>: discovery::Bind<Request=http::Request<B>>,
 {
-    type Request = <Buffer<LoadBalance<B>> as tower::Service>::Request;
-    type Response = <Buffer<LoadBalance<B>> as tower::Service>::Response;
-    type Error = <Buffer<LoadBalance<B>> as tower::Service>::Error;
+    type Request = http::Request<B>;
+    type Response = <Self::Service as tower::Service>::Response;
+    type Error = <Self::Service as tower::Service>::Error;
     type Key = (FullyQualifiedAuthority, Protocol);
     type RouteError = ();
-    type Service = Buffer<LoadBalance<B>>;
+    type Service = Buffer<Balance<
+        Discovery<B>,
+        choose::RoundRobin, // TODO: better load balancer.
+    >>;
 
     fn recognize(&self, req: &Self::Request) -> Option<Self::Key> {
         req.uri().authority_part().map(|authority| {

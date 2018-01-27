@@ -61,7 +61,7 @@ pub type NewHttp<B> = sensor::NewHttp<
 >;
 
 pub type HttpResponse = http::Response<
-    sensor::http::ResponseBody<tower_h2::RecvBody>
+    sensor::http::ResponseBody<transparency::HttpBody>
 >;
 
 impl<B> Bind<(), B> {
