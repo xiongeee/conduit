@@ -1,4 +1,3 @@
-use std::io;
 use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -9,7 +8,7 @@ use http;
 use tokio_core::reactor::Handle;
 use tower;
 use tower_h2;
-use tower_reconnect::{self, Reconnect, Error as ReconnectError};
+use tower_reconnect::Reconnect;
 
 use control;
 use ctx;

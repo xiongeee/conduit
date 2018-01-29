@@ -1,4 +1,3 @@
-use std::io;
 use std::net::{SocketAddr};
 use std::sync::Arc;
 
@@ -6,15 +5,12 @@ use http;
 use tower;
 use tower_buffer::{self, Buffer};
 use tower_h2;
-use tower_reconnect::{self, Reconnect};
 use tower_router::Recognize;
 
-use bind::{self, BindProtocol};
+use bind;
 use ctx;
 use control::discovery;
-use telemetry;
 use transparency;
-use transport;
 
 type Bind<B> = bind::Bind<Arc<ctx::Proxy>, B>;
 
@@ -22,11 +18,6 @@ pub struct Inbound<B> {
     default_addr: Option<SocketAddr>,
     bind: Bind<B>,
 }
-
-type Client<B> = transparency::Client<
-    telemetry::sensor::Connect<transport::TimeoutConnect<transport::Connect>>,
-    B,
->;
 
 // ===== impl Inbound =====
 
@@ -46,7 +37,7 @@ where
         Request = http::Request<B>,
         Response = bind::HttpResponse
     >,
-    BindProtocol<Arc<ctx::Proxy>, B>: discovery::Bind,
+    bind::BindProtocol<Arc<ctx::Proxy>, B>: discovery::Bind,
     bind::Client<B>: tower::NewService<
         Request = http::Request<B>,
         Response = http::Response<transparency::HttpBody>,
