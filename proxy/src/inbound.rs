@@ -46,7 +46,12 @@ where
         Request = http::Request<B>,
         Response = bind::HttpResponse
     >,
-    Bind<B>: discovery::Bind,
+    BindProtocol<Arc<ctx::Proxy>, B>: discovery::Bind,
+    bind::Client<B>: tower::NewService<
+        Request = http::Request<B>,
+        Response = http::Response<transparency::HttpBody>,
+        Error = tower_h2::client::Error,
+    >
 {
     type Request = http::Request<B>;
     type Response = bind::HttpResponse;

@@ -14,7 +14,7 @@ use tower_reconnect::{self, Reconnect, Error as ReconnectError};
 use control;
 use ctx;
 use telemetry::{self, sensor};
-use transparency;
+use transparency::{self, HttpBody};
 use transport;
 use ::timeout::Timeout;
 
@@ -51,18 +51,15 @@ pub enum Protocol {
 
 pub type Service<B> = Reconnect<NewHttp<B>>;
 
-pub type NewHttp<B> = sensor::NewHttp<
-    transparency::Client<
-        sensor::Connect<transport::TimeoutConnect<transport::Connect>>,
-        B,
-    >,
-    B,
-    transparency::HttpBody,
->;
+pub type NewHttp<B> = sensor::NewHttp<Client<B>, B, HttpBody>;
 
-pub type HttpResponse = http::Response<
-    sensor::http::ResponseBody<transparency::HttpBody>
+pub type HttpResponse = http::Response<sensor::http::ResponseBody<HttpBody>>;
+
+pub type Client<B> = transparency::Client<
+    sensor::Connect<transport::TimeoutConnect<transport::Connect>>,
+    B,
 >;
+// transparency::client::Client<sensor::transport::Connect<timeout::Timeout<transport::connect::Conenct>>, B>
 
 impl<B> Bind<(), B> {
     pub fn new(executor: Handle) -> Self {
@@ -142,7 +139,15 @@ impl<C, B> Bind<C, B> {
 impl<B> Bind<Arc<ctx::Proxy>, B>
 where
     B: tower_h2::Body + 'static,
-    NewHttp<B>: tower::NewService,
+    NewHttp<B>: tower::NewService<
+        Request = http::Request<B>,
+        Response = HttpResponse,
+    >,
+    Client<B>: tower::NewService<
+        Request = http::Request<B>,
+        Response = http::Response<HttpBody>,
+        Error = tower_h2::client::Error,
+    >,
 {
     pub fn bind_service(&self, addr: &SocketAddr, protocol: Protocol) -> Service<B> {
         trace!("bind_service addr={}, protocol={:?}", addr, protocol);
@@ -190,17 +195,25 @@ impl<C, B> Bind<C, B> {
     }
 }
 
-impl<B> control::discovery::Bind for BindProtocol<Arc<ctx::Proxy>, B>
+impl<B, E> control::discovery::Bind for BindProtocol<Arc<ctx::Proxy>, B>
 where
     B: tower_h2::Body + 'static,
     NewHttp<B>: tower::NewService<
+        // Service=Service<B>,
         Request = http::Request<B>,
         Response = HttpResponse,
+        Error = E
     >,
     Service<B>: tower::Service<
         Request = http::Request<B>,
         Response = HttpResponse,
     >,
+    Client<B>: tower::NewService<
+        Request = http::Request<B>,
+        Response = http::Response<HttpBody>,
+        Error = tower_h2::client::Error,
+    >,
+    // Client<B>: 'static
 {
     type Request = http::Request<B>;
     type Response = HttpResponse;

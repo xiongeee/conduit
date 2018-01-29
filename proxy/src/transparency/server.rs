@@ -49,7 +49,7 @@ where
     > + Clone + 'static,
     S::Future: 'static,
     S::Error: fmt::Debug,
-    B: tower_h2::Body + 'static + Clone,
+    B: tower_h2::Body + 'static,
     G: GetOriginalDst,
 {
     /// Creates a new `Server`.

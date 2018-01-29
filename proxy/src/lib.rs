@@ -1,6 +1,6 @@
 #![cfg_attr(feature = "cargo-clippy", allow(clone_on_ref_ptr))]
 #![cfg_attr(feature = "cargo-clippy", allow(new_without_default_derive))]
-#![deny(warnings)]
+// #![deny(warnings)]
 
 extern crate abstract_ns;
 extern crate bytes;
@@ -146,6 +146,8 @@ where
     pub fn run_until<F>(self, shutdown_signal: F)
     where
         F: Future<Item = (), Error = ()>,
+        // bind::BindProtocol<Arc<ctx::Proxy>, transparency::HttpBody>: control::discovery::Bind,
+        // bind::NewHttp<transparency::HttpBody>: tower::NewService,
     {
         let process_ctx = ctx::Process::new(&self.config);
 
@@ -310,6 +312,8 @@ where
     >
         + 'static,
     G: GetOriginalDst + 'static,
+    bind::NewHttp<B>: tower::NewService,
+    bind::Client<B> : tower::NewService
 {
     let router = Router::new(recognize);
     let stack = Arc::new(NewServiceFn::new(move || {
