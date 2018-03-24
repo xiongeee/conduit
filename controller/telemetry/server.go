@@ -2,7 +2,6 @@ package telemetry
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -143,7 +142,6 @@ func NewServer(addr, prometheusUrl string, ignoredNamespaces []string, kubeconfi
 
 	s := util.NewGrpcServer()
 	read.RegisterTelemetryServer(s, srv)
-	write.RegisterTelemetryServer(s, srv)
 
 	// TODO: register shutdown hook to call pods.Stop() and replicatSets.Stop()
 
@@ -285,77 +283,6 @@ func (s *server) ListPods(ctx context.Context, req *read.ListPodsRequest) (*publ
 	}
 
 	return &public.ListPodsResponse{Pods: podList}, nil
-}
-
-func (s *server) Report(ctx context.Context, req *write.ReportRequest) (*write.ReportResponse, error) {
-	log.Debugf("Report request: %+v", req)
-
-	id := "unknown"
-	if req.Process != nil {
-		id = req.Process.ScheduledNamespace + "/" + req.Process.ScheduledInstance
-	}
-
-	logCtx := log.WithFields(log.Fields{"id": id})
-	logCtx.Debugf("Received report with %d requests", len(req.Requests))
-
-	reportsTotal.With(prometheus.Labels{"pod": id}).Inc()
-
-	for _, requestScope := range req.Requests {
-		if requestScope.Ctx == nil {
-			return nil, errors.New("RequestCtx is required")
-		}
-		requestLabels := s.requestLabelsFor(requestScope)
-		requestsTotal.With(requestLabels).Add(float64(requestScope.Count))
-		latencyStat := responseLatency.With(requestLabels)
-
-		for _, responseScope := range requestScope.Responses {
-			if responseScope.Ctx == nil {
-				return nil, errors.New("ResponseCtx is required")
-			}
-
-			// Validate this ResponseScope's latency histogram.
-			numBuckets := len(responseScope.ResponseLatencyCounts)
-			expectedNumBuckets := len(req.HistogramBucketBoundsTenthMs)
-			if numBuckets != expectedNumBuckets {
-				err := errors.New(
-					"received report with incorrect number of latency buckets")
-				logCtx.WithFields(log.Fields{
-					"numBuckets": numBuckets,
-					"expected":   expectedNumBuckets,
-					"scope":      responseScope,
-				}).WithError(err).Error()
-				return nil, err
-			}
-
-			for bucketNum, count := range responseScope.ResponseLatencyCounts {
-				// Look up the bucket max value corresponding to this position
-				// in the report's latency histogram.
-				latencyTenthsMs := req.HistogramBucketBoundsTenthMs[bucketNum]
-				latencyMs := float64(latencyTenthsMs) / 10
-				for i := uint32(0); i < count; i++ {
-					// Then, report that latency value to Prometheus a number
-					// of times equal to the count reported by the proxy.
-					latencyStat.Observe(latencyMs)
-				}
-
-			}
-
-			for _, eosScope := range responseScope.Ends {
-				if eosScope.Ctx == nil {
-					return nil, errors.New("EosCtx is required")
-				}
-
-				responseLabels := s.requestLabelsFor(requestScope)
-				for k, v := range responseLabelsFor(responseScope, eosScope) {
-					responseLabels[k] = v
-				}
-
-				responsesTotal.With(responseLabels).Add(float64(eosScope.Streams))
-			}
-		}
-
-	}
-	return &write.ReportResponse{}, nil
 }
 
 func (s *server) shouldIngore(pod *k8sV1.Pod) bool {

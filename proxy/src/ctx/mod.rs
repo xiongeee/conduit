@@ -8,7 +8,6 @@
 //! be stored in `http::Extensions`, for instance. Furthermore, because these contexts
 //! will be sent to a telemetry processing thread, we want to avoid excessive cloning.
 use config;
-use conduit_proxy_controller_grpc::telemetry as proto;
 use std::sync::Arc;
 pub mod http;
 pub mod transport;
@@ -71,16 +70,16 @@ impl Process {
     }
 }
 
-impl<'a> Into<proto::Process> for &'a Process {
-    fn into(self) -> proto::Process {
-        // TODO: can this be implemented without cloning Strings?
-        proto::Process {
-            node: self.node.clone(),
-            scheduled_instance: self.scheduled_instance.clone(),
-            scheduled_namespace: self.scheduled_namespace.clone(),
-        }
-    }
-}
+// impl<'a> Into<proto::Process> for &'a Process {
+//     fn into(self) -> proto::Process {
+//         // TODO: can this be implemented without cloning Strings?
+//         proto::Process {
+//             node: self.node.clone(),
+//             scheduled_instance: self.scheduled_instance.clone(),
+//             scheduled_namespace: self.scheduled_namespace.clone(),
+//         }
+//     }
+// }
 
 impl Proxy {
     pub fn inbound(p: &Arc<Process>) -> Arc<Self> {

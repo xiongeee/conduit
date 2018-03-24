@@ -48,9 +48,7 @@ func (m *Update) String() string            { return proto.CompactTextString(m) 
 func (*Update) ProtoMessage()               {}
 func (*Update) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
-type isUpdate_Update interface {
-	isUpdate_Update()
-}
+type isUpdate_Update interface{ isUpdate_Update() }
 
 type Update_Add struct {
 	Add *WeightedAddrSet `protobuf:"bytes,1,opt,name=add,oneof"`
