@@ -2,15 +2,12 @@ syntax = "proto3";
 
 package conduit.controller.telemetry;
 
-import "public/api.proto";
-
 /// Telemetry Service ///
 //
 // Internal Telemetry Service read API
 
 service Telemetry {
   rpc Query(QueryRequest) returns (QueryResponse) {}
-  rpc ListPods(ListPodsRequest) returns (public.ListPodsResponse) {}
 }
 
 message QueryRequest {

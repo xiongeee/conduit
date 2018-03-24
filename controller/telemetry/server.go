@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/golang/protobuf/ptypes/duration"
@@ -15,17 +13,16 @@ import (
 	"github.com/prometheus/common/model"
 	common "github.com/runconduit/conduit/controller/gen/common"
 	read "github.com/runconduit/conduit/controller/gen/controller/telemetry"
-	write "github.com/runconduit/conduit/controller/gen/proxy/telemetry"
 	public "github.com/runconduit/conduit/controller/gen/public"
 	"github.com/runconduit/conduit/controller/k8s"
 	"github.com/runconduit/conduit/controller/util"
 	pkgK8s "github.com/runconduit/conduit/pkg/k8s"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	k8sV1 "k8s.io/api/core/v1"
 )
 
+// TODO this needs to be removed
 const (
 	reportsMetric = "reports_total"
 )
@@ -361,37 +358,4 @@ func convertSample(sample *model.Sample) *read.Sample {
 	}
 
 	return &read.Sample{Values: values, Labels: metricToMap(sample.Metric)}
-}
-
-func (s *server) requestLabelsFor(requestScope *write.RequestScope) prometheus.Labels {
-	sourceDeployment := s.getDeployment(requestScope.Ctx.SourceIp)
-	targetDeployment := s.getDeployment(requestScope.Ctx.TargetAddr.Ip)
-
-	return prometheus.Labels{
-		"source_deployment": sourceDeployment,
-		"target_deployment": targetDeployment,
-	}
-}
-
-func responseLabelsFor(responseScope *write.ResponseScope, eosScope *write.EosScope) prometheus.Labels {
-	httpStatusCode := strconv.Itoa(int(responseScope.Ctx.HttpStatusCode))
-	classification := "failure"
-	switch x := eosScope.Ctx.End.(type) {
-	case *write.EosCtx_GrpcStatusCode:
-		// The stream ended with a `grpc-status` trailer.
-		// Classify based on the gRPC status code.
-		if x.GrpcStatusCode == uint32(codes.OK) {
-			classification = "success"
-		}
-	case *write.EosCtx_Other:
-		// The stream did not end with a `grpc-status` trailer (i.e., it was
-		// not a gRPC message). Classify based on the response's HTTP status.
-		if responseScope.Ctx.HttpStatusCode < http.StatusInternalServerError {
-			classification = "success"
-		}
-	}
-	return prometheus.Labels{
-		"http_status_code": httpStatusCode,
-		"classification":   classification,
-	}
 }
